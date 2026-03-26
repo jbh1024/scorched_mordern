@@ -51,6 +51,12 @@ npm run build
 
 # 타입 체크 (project references 기반)
 npm run typecheck
+
+# 테스트 (Vitest)
+npm run test
+
+# 테스트 (watch 모드)
+npm run test:watch
 ```
 
 > **Note:** ESLint는 아직 미설정. lint 스크립트는 package.json에 정의되어 있으나 eslint 패키지 설치 필요.
@@ -105,9 +111,10 @@ chore: configure eslint and prettier
 
 ### Pre-Commit Checklist
 커밋 전 반드시 확인:
-1. `npm run typecheck` 통과
-2. 브라우저에서 기본 동작 확인 (해당하는 경우)
-3. `packages/shared`의 타입 변경 시 client/server 양쪽 영향 확인
+1. `npm run test` 통과
+2. `npm run typecheck` 통과
+3. 브라우저에서 기본 동작 확인 (해당하는 경우)
+4. `packages/shared`의 타입 변경 시 client/server 양쪽 영향 확인
 
 ## Development Workflow
 

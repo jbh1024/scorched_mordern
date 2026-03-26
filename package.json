@@ -13,10 +13,13 @@
     "dev:server": "npm run dev -w @scorched/server",
     "build": "npm run build -w @scorched/shared && npm run build -w @scorched/server && npm run build -w @scorched/client",
     "lint": "eslint packages/*/src --ext .ts,.tsx",
-    "typecheck": "tsc -b"
+    "typecheck": "tsc -b",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vitest": "^4.1.1"
   }
 }
