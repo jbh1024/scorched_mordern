@@ -1,5 +1,4 @@
 import { Container, Sprite, Texture } from 'pixi.js';
-import type { TerrainMask } from '@scorched/shared';
 
 /**
  * TerrainMask + colorData를 PixiJS Sprite로 렌더링한다.
@@ -78,7 +77,6 @@ export class TerrainRenderer {
 
   /** 폭발 후 해당 영역을 다시 렌더링 */
   async redrawExplosion(
-    _mask: TerrainMask,
     colorData: Uint8Array,
     cx: number,
     cy: number,

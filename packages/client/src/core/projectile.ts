@@ -59,12 +59,8 @@ export class Projectile {
     return terrain.isSolid(px, py);
   }
 
-  /** 탱크 충돌 체크 (AABB) */
-  checkTankCollision(tank: Tank): boolean {
-    // 자기 탱크는 원점을 벗어나기 전까지 무시
-    if (tank.id === this.ownerId && !this.hasLeftOrigin) return false;
-    if (!tank.isAlive) return false;
-
+  /** 포탄이 탱크의 AABB 내부에 있는지 확인 */
+  private isInsideTank(tank: Tank): boolean {
     return (
       this.x >= tank.x &&
       this.x <= tank.x + TANK.WIDTH &&
@@ -73,15 +69,17 @@ export class Projectile {
     );
   }
 
+  /** 탱크 충돌 체크 (AABB) */
+  checkTankCollision(tank: Tank): boolean {
+    if (tank.id === this.ownerId && !this.hasLeftOrigin) return false;
+    if (!tank.isAlive) return false;
+    return this.isInsideTank(tank);
+  }
+
   /** 자기 탱크 히트박스를 벗어났는지 확인 (매 프레임 호출) */
   updateOriginCheck(ownerTank: Tank): void {
     if (this.hasLeftOrigin) return;
-    const inBox =
-      this.x >= ownerTank.x &&
-      this.x <= ownerTank.x + TANK.WIDTH &&
-      this.y >= ownerTank.y &&
-      this.y <= ownerTank.y + TANK.HEIGHT;
-    if (!inBox) {
+    if (!this.isInsideTank(ownerTank)) {
       this.hasLeftOrigin = true;
     }
   }

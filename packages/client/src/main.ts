@@ -59,6 +59,12 @@ async function init() {
   app.stage.addChild(projectileRenderer.container);
 
   // --- HUD (하단) ---
+  const HUD_TEXT_Y = GAME.WORLD_HEIGHT - 50;
+  const HUD_CONTROLS_Y = GAME.WORLD_HEIGHT - 20;
+  const CHARGE_BAR_W = 300;
+  const CHARGE_BAR_H = 12;
+  const CHARGE_BAR_Y = GAME.WORLD_HEIGHT - 80;
+
   const hudGraphics = new Graphics();
   app.stage.addChild(hudGraphics);
 
@@ -67,7 +73,7 @@ async function init() {
     style: new TextStyle({ fill: 0xffffff, fontSize: 20, fontWeight: 'bold' }),
   });
   hudText.x = GAME.WORLD_WIDTH / 2;
-  hudText.y = GAME.WORLD_HEIGHT - 50;
+  hudText.y = HUD_TEXT_Y;
   hudText.anchor.set(0.5, 0);
   app.stage.addChild(hudText);
 
@@ -76,7 +82,7 @@ async function init() {
     style: new TextStyle({ fill: 0xaaaaaa, fontSize: 14 }),
   });
   controlsText.x = GAME.WORLD_WIDTH / 2;
-  controlsText.y = GAME.WORLD_HEIGHT - 20;
+  controlsText.y = HUD_CONTROLS_Y;
   controlsText.anchor.set(0.5, 0);
   app.stage.addChild(controlsText);
 
@@ -112,7 +118,7 @@ async function init() {
       switch (event.type) {
         case 'explosion':
           await terrainRenderer.redrawExplosion(
-            mask, colorData, event.x, event.y, event.radius,
+            colorData, event.x, event.y, event.radius,
           );
           break;
         case 'game_over':
@@ -136,8 +142,8 @@ async function init() {
     if (game.state === 'player_action') {
       if (keys.has('ArrowLeft')) game.moveTank(-1, dt);
       if (keys.has('ArrowRight')) game.moveTank(1, dt);
-      if (keys.has('ArrowUp')) game.adjustAngle(2);
-      if (keys.has('ArrowDown')) game.adjustAngle(-2);
+      if (keys.has('ArrowUp')) game.adjustAngle(1);
+      if (keys.has('ArrowDown')) game.adjustAngle(-1);
     }
 
     // 게임 업데이트
@@ -162,19 +168,14 @@ async function init() {
     hudGraphics.clear();
     if (game.state === 'player_action') {
       const tank = game.currentTank;
-      const fuelPct = Math.floor((tank.fuel / 100) * 100);
-      hudText.text = `${tank.name} | Angle: ${tank.angle}° | Fuel: ${fuelPct}% | Weapon: Shell`;
+      hudText.text = `${tank.name} | Angle: ${tank.angle}° | Fuel: ${Math.floor(tank.fuel)}px | Weapon: Shell`;
     } else if (game.state === 'charging') {
       const tank = game.currentTank;
       hudText.text = `${tank.name} | CHARGING: ${Math.floor(game.power)}%`;
 
-      // 파워 차징 바 (하단 중앙)
-      const barW = 300;
-      const barH = 12;
-      const barX = (GAME.WORLD_WIDTH - barW) / 2;
-      const barY = GAME.WORLD_HEIGHT - 80;
-      hudGraphics.rect(barX, barY, barW, barH).fill({ color: 0x333333 });
-      hudGraphics.rect(barX, barY, barW * (game.power / 100), barH).fill({ color: 0xff4400 });
+      const barX = (GAME.WORLD_WIDTH - CHARGE_BAR_W) / 2;
+      hudGraphics.rect(barX, CHARGE_BAR_Y, CHARGE_BAR_W, CHARGE_BAR_H).fill({ color: 0x333333 });
+      hudGraphics.rect(barX, CHARGE_BAR_Y, CHARGE_BAR_W * (game.power / 100), CHARGE_BAR_H).fill({ color: 0xff4400 });
     } else if (game.state === 'projectile_flight') {
       hudText.text = '...';
     }

@@ -4,6 +4,12 @@ import { Tank } from './tank.js';
 import { Projectile, STANDARD_SHELL, predictTrajectory } from './projectile.js';
 import type { ProjectileConfig } from './projectile.js';
 
+// --- Constants ---
+
+const CHARGE_RATE = 60;           // %/s (약 1.7초에 100%)
+const PREVIEW_POWER_PCT = 50;     // 차징 전 궤적 프리뷰 파워 (%)
+const ANGLE_STEP = 2;             // 프레임당 각도 조절량 (도)
+
 // --- Game State ---
 
 export type GameState = 'player_action' | 'charging' | 'projectile_flight' | 'turn_end' | 'game_over';
@@ -68,7 +74,7 @@ export class GameManager {
 
   adjustAngle(delta: number): void {
     if (this.state !== 'player_action') return;
-    this.currentTank.adjustAngle(delta);
+    this.currentTank.adjustAngle(delta * ANGLE_STEP);
   }
 
   // --- 입력: Space 차징 시작 ---
@@ -103,7 +109,7 @@ export class GameManager {
     const origin = tank.getFireOrigin();
     const previewPower = this.state === 'charging'
       ? (this.power / 100) * GAME.MAX_POWER
-      : (50 / 100) * GAME.MAX_POWER; // player_action에서는 50% 프리뷰
+      : (PREVIEW_POWER_PCT / 100) * GAME.MAX_POWER;
 
     return predictTrajectory(
       origin.x, origin.y,
@@ -118,7 +124,7 @@ export class GameManager {
     const events: GameEvent[] = [];
 
     if (this.state === 'charging') {
-      this.power = Math.min(100, this.power + 60 * dt); // ~1.7초에 100%
+      this.power = Math.min(100, this.power + CHARGE_RATE * dt);
       if (this.power >= 100) {
         this.fire(); // 100% 도달 시 자동 발사
       }
