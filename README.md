@@ -54,7 +54,8 @@ npm run build
 
 ## Development
 
-자세한 게임 설계는 [GDD 문서](docs/GDD.md)를 참고하세요.
+- 게임 설계: [GDD](docs/game/GDD.md) | [게임 규칙](docs/game/game-rules.md)
+- 개발 로드맵: [ROADMAP](docs/dev/ROADMAP.md)
 
 ## License
 
