@@ -129,6 +129,17 @@ chore: configure eslint and prettier
 - **Playwright** - 브라우저 E2E 테스트, 게임 UI 검증
 - **Serena** - 프로젝트 컨텍스트 관리, 세션 간 메모리
 
+## Game Specifications
+
+게임 시스템별 상세 스펙, 제약사항, 조건은 아래 문서를 참조:
+
+- **[Terrain](docs/game/terrain.md)** - 지형 좌표계, TerrainMask 구조, 생성 파라미터, 파괴 로직, 렌더링
+- **[Tank](docs/game/tank.md)** - 탱크 속성, 포탑 각도, 지형 배치, HP/데미지, 상태 전이, 렌더링
+- **[GDD](docs/game/GDD.md)** - 전체 게임 설계 문서
+- **[Game Rules](docs/game/game-rules.md)** - 밸런스 수치, 경제, 엣지 케이스
+
+> 구현 시 해당 시스템의 스펙 문서를 먼저 확인하고, 구현 후 변경사항이 있으면 문서도 함께 갱신할 것.
+
 ## Important Notes
 - 지형 시스템의 픽셀 조작은 Web Worker에서 수행 (메인 스레드 블로킹 금지)
 - PixiJS Texture 업데이트는 변경된 영역(Dirty Rect)만 갱신
