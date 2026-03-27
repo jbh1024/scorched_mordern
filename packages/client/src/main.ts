@@ -1,12 +1,15 @@
-import { Application } from 'pixi.js';
+import { Application, Graphics, Text, TextStyle } from 'pixi.js';
 import { GAME } from '@scorched/shared';
 import { generateTerrain } from './terrain/terrain-generator.js';
 import { TerrainRenderer } from './renderer/terrain-renderer.js';
 import { Tank } from './core/tank.js';
 import { TankRenderer } from './renderer/tank-renderer.js';
+import { Projectile, STANDARD_SHELL, predictTrajectory } from './core/projectile.js';
+import { ProjectileRenderer } from './renderer/projectile-renderer.js';
 
-// 플레이어 색상
 const PLAYER_COLORS = [0xe74c3c, 0x3498db, 0x2ecc71, 0xf1c40f, 0x9b59b6, 0xe67e22, 0x1abc9c, 0xecf0f1];
+
+type GameState = 'player_action' | 'projectile_flight' | 'turn_end';
 
 async function init() {
   const app = new Application();
@@ -35,91 +38,179 @@ async function init() {
 
   // 지형 생성
   const seed = 42;
-  const { mask, colorData } = generateTerrain(
-    GAME.WORLD_WIDTH,
-    GAME.WORLD_HEIGHT,
-    seed,
-  );
+  const { mask, colorData } = generateTerrain(GAME.WORLD_WIDTH, GAME.WORLD_HEIGHT, seed);
 
-  // 지형 렌더링
   const terrainRenderer = new TerrainRenderer(GAME.WORLD_WIDTH, GAME.WORLD_HEIGHT);
   await terrainRenderer.fullRedraw(colorData);
   app.stage.addChild(terrainRenderer.container);
 
-  // 탱크 2대 생성 및 배치
+  // 탱크 생성
   const tank1 = new Tank('t1', 'p1', PLAYER_COLORS[0]!);
   const tank2 = new Tank('t2', 'p2', PLAYER_COLORS[1]!);
+  const tanks = [tank1, tank2];
 
   const margin = GAME.WORLD_WIDTH * 0.15;
   tank1.placeOnTerrain(Math.floor(margin), mask);
   tank2.placeOnTerrain(Math.floor(GAME.WORLD_WIDTH - margin), mask);
 
-  const tankRenderer1 = new TankRenderer(tank1);
-  const tankRenderer2 = new TankRenderer(tank2);
-  app.stage.addChild(tankRenderer1.container);
-  app.stage.addChild(tankRenderer2.container);
+  const tankRenderers = tanks.map(t => new TankRenderer(t));
+  for (const tr of tankRenderers) app.stage.addChild(tr.container);
 
-  // 현재 턴 플레이어 (0 또는 1)
+  // 포탄 렌더러
+  const projectileRenderer = new ProjectileRenderer();
+  app.stage.addChild(projectileRenderer.container);
+
+  // HUD: 파워 게이지 + 턴 표시
+  const hudContainer = new Graphics();
+  app.stage.addChild(hudContainer);
+
+  const turnText = new Text({
+    text: '',
+    style: new TextStyle({ fill: 0xffffff, fontSize: 24, fontWeight: 'bold' }),
+  });
+  turnText.x = GAME.WORLD_WIDTH / 2;
+  turnText.y = 20;
+  turnText.anchor.set(0.5, 0);
+  app.stage.addChild(turnText);
+
+  // 게임 상태
+  let gameState: GameState = 'player_action';
   let currentPlayer = 0;
-  const tanks = [tank1, tank2];
-  const tankRenderers = [tankRenderer1, tankRenderer2];
+  let power = 50; // 0~100 (%)
+  let projectile: Projectile | null = null;
+  const wind = 0; // Phase 1: 바람 없음
 
-  // 키보드 입력
+  // 키 입력
   const keys = new Set<string>();
-  window.addEventListener('keydown', (e) => keys.add(e.key));
-  window.addEventListener('keyup', (e) => keys.delete(e.key));
-
-  // 게임 루프
-  app.ticker.add(() => {
-    const tank = tanks[currentPlayer]!;
-
-    // 포탑 각도 조절 (좌우 방향키)
-    if (keys.has('ArrowLeft')) tank.adjustAngle(2);
-    if (keys.has('ArrowRight')) tank.adjustAngle(-2);
-
-    // 렌더러 갱신
-    for (const renderer of tankRenderers) {
-      renderer.update();
+  window.addEventListener('keydown', (e) => {
+    keys.add(e.code);
+    // Space로 발사
+    if (e.code === 'Space' && gameState === 'player_action') {
+      fire();
     }
   });
+  window.addEventListener('keyup', (e) => keys.delete(e.code));
 
-  // 클릭으로 폭발 테스트 (디버그)
-  app.canvas.addEventListener('click', async (e: MouseEvent) => {
-    const rect = app.canvas.getBoundingClientRect();
-    const scaleX = GAME.WORLD_WIDTH / rect.width;
-    const scaleY = GAME.WORLD_HEIGHT / rect.height;
-    const x = Math.floor((e.clientX - rect.left) * scaleX);
-    const y = Math.floor((e.clientY - rect.top) * scaleY);
-    const radius = 25;
+  function fire() {
+    const tank = tanks[currentPlayer]!;
+    const origin = tank.getFireOrigin();
+    const actualPower = (power / 100) * GAME.MAX_POWER;
 
-    mask.explode(x, y, radius);
+    projectile = new Projectile(
+      origin.x,
+      origin.y,
+      tank.angleRad,
+      actualPower,
+      STANDARD_SHELL,
+      tank.id,
+    );
 
-    const minX = Math.max(0, x - radius);
-    const maxX = Math.min(GAME.WORLD_WIDTH - 1, x + radius);
-    const minY = Math.max(0, y - radius);
-    const maxY = Math.min(GAME.WORLD_HEIGHT - 1, y + radius);
-    for (let py = minY; py <= maxY; py++) {
-      for (let px = minX; px <= maxX; px++) {
-        if (!mask.isSolid(px, py)) {
-          const ci = (py * GAME.WORLD_WIDTH + px) * 4;
-          colorData[ci] = 0;
-          colorData[ci + 1] = 0;
-          colorData[ci + 2] = 0;
-          colorData[ci + 3] = 0;
+    gameState = 'projectile_flight';
+    projectileRenderer.hideTrajectory();
+  }
+
+  function nextTurn() {
+    // 승패 판정
+    const alive = tanks.filter(t => t.isAlive);
+    if (alive.length <= 1) {
+      const winner = alive[0];
+      turnText.text = winner ? `Player ${tanks.indexOf(winner) + 1} Wins!` : 'Draw!';
+      gameState = 'turn_end';
+      return;
+    }
+
+    // 다음 플레이어
+    do {
+      currentPlayer = (currentPlayer + 1) % tanks.length;
+    } while (!tanks[currentPlayer]!.isAlive);
+
+    power = 50;
+    gameState = 'player_action';
+  }
+
+  // 게임 루프
+  app.ticker.add(async (ticker) => {
+    const dt = ticker.deltaMS / 1000;
+    const tank = tanks[currentPlayer]!;
+
+    if (gameState === 'player_action') {
+      // 각도 조절
+      if (keys.has('ArrowLeft')) tank.adjustAngle(2);
+      if (keys.has('ArrowRight')) tank.adjustAngle(-2);
+      // 파워 조절
+      if (keys.has('ArrowUp')) power = Math.min(100, power + 1);
+      if (keys.has('ArrowDown')) power = Math.max(0, power - 1);
+
+      // 궤적 예측선
+      const origin = tank.getFireOrigin();
+      const actualPower = (power / 100) * GAME.MAX_POWER;
+      const points = predictTrajectory(
+        origin.x, origin.y, tank.angleRad, actualPower, wind, mask,
+      );
+      projectileRenderer.drawTrajectory(points);
+
+      // HUD
+      turnText.text = `Player ${currentPlayer + 1} | Angle: ${tank.angle}° | Power: ${power}% | [Space] Fire`;
+    }
+
+    if (gameState === 'projectile_flight' && projectile) {
+      projectile.update(dt, wind);
+      projectile.updateOriginCheck(tank);
+
+      // 충돌 체크
+      let hit = false;
+
+      // 탱크 충돌
+      for (const t of tanks) {
+        if (projectile.checkTankCollision(t)) {
+          hit = true;
+          break;
         }
+      }
+
+      // 지형 충돌
+      if (!hit && projectile.checkTerrainCollision(mask)) {
+        hit = true;
+      }
+
+      if (hit) {
+        projectile.explode(mask, colorData, tanks);
+        await terrainRenderer.redrawExplosion(mask, colorData,
+          Math.floor(projectile.x), Math.floor(projectile.y),
+          projectile.config.explosionRadius);
+
+        // 탱크 재배치
+        for (const t of tanks) {
+          if (t.isAlive) t.placeOnTerrain(t.x, mask);
+        }
+
+        projectile = null;
+        nextTurn();
+      } else if (projectile.isOutOfBounds()) {
+        projectile.expire();
+        projectile = null;
+        nextTurn();
       }
     }
 
-    await terrainRenderer.redrawExplosion(mask, colorData, x, y, radius);
+    // 렌더러 갱신
+    projectileRenderer.updateBullet(projectile);
+    for (const tr of tankRenderers) tr.update();
 
-    // 폭발 후 탱크 재배치 (지형이 깎이면 아래로 떨어짐)
-    for (const t of tanks) {
-      if (t.isAlive) t.placeOnTerrain(t.x, mask);
+    // 파워 게이지 HUD
+    hudContainer.clear();
+    if (gameState === 'player_action') {
+      const barX = tank.x - 10;
+      const barY = tank.y - 30;
+      const barW = 52;
+      const barH = 6;
+      hudContainer
+        .rect(barX, barY, barW, barH)
+        .fill({ color: 0x333333 });
+      hudContainer
+        .rect(barX + 1, barY + 1, (barW - 2) * (power / 100), barH - 2)
+        .fill({ color: 0xff8800 });
     }
-
-    // 턴 교대
-    currentPlayer = (currentPlayer + 1) % tanks.length;
-    console.log(`Explosion at (${x}, ${y}) - Player ${currentPlayer + 1}'s turn`);
   });
 
   console.log(`Scorched Modern initialized - Seed: ${seed}`);

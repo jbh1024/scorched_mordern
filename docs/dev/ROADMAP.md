@@ -29,11 +29,13 @@
 - [x] 포탑 각도 표시 + 키보드 조절
 
 ### 1.4 포탄 물리
-- [ ] 궤적 계산 (`shared/formulas.ts` 활용)
-- [ ] 포탄 이동 애니메이션 (requestAnimationFrame)
-- [ ] 지형 충돌 판정 (TerrainMask 픽셀 체크)
-- [ ] 탱크 충돌 판정 (AABB)
-- [ ] 궤적 예측선 렌더링 (짧은 범위)
+- [x] Step simulation 물리 (Y-down 좌표계, 중력+바람)
+- [x] 포탄 이동 애니메이션 (PixiJS ticker)
+- [x] 지형 충돌 판정 (TerrainMask 픽셀 체크)
+- [x] 탱크 충돌 판정 (AABB, 자체 충돌 보호)
+- [x] 궤적 예측선 렌더링 (점선, 0.5초 분량)
+- [x] 파워 게이지 (방향키 조절, HUD 표시)
+- [x] 데미지 계산 (거리 반비례)
 
 ### 1.5 지형 파괴
 - [x] Explosion Brush (원형 지형 제거)
