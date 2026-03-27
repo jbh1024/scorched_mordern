@@ -40,15 +40,16 @@
 ### 1.5 지형 파괴
 - [x] Explosion Brush (원형 지형 제거)
 - [ ] 폭발 시각 이펙트 (기본 파티클)
-- [ ] TerrainMask → Texture 업데이트 (Dirty Rect)
+- [x] TerrainMask → Texture 업데이트 (Dirty Rect + ImageBitmap)
 
 ### 1.6 턴 시스템
-- [ ] GameManager 상태 머신 (`core/game-manager.ts`)
-- [ ] 2인 턴 교대
-- [ ] 각도/파워 입력 UI (키보드)
-- [ ] 발사 버튼 / Enter 키
-- [ ] HP 표시 및 데미지 적용
-- [ ] 승패 판정
+- [x] GameManager 상태 머신 (`core/game-manager.ts`)
+- [x] 이벤트 기반 로직-렌더링 분리
+- [x] 2인 턴 교대
+- [x] 각도/파워 입력 UI (키보드)
+- [x] Space 키 발사
+- [x] HP 표시 및 데미지 적용
+- [x] 승패 판정 (승리 / 무승부)
 
 ---
 

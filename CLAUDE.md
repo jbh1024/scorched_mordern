@@ -146,6 +146,7 @@ chore: configure eslint and prettier
 - **[Terrain](docs/game/terrain.md)** - 지형 좌표계, TerrainMask 구조, 생성 파라미터, 파괴 로직, 렌더링
 - **[Tank](docs/game/tank.md)** - 탱크 속성, 포탑 각도, 지형 배치, HP/데미지, 상태 전이, 렌더링
 - **[Projectile](docs/game/projectile.md)** - 포탄 물리(Y-down), 충돌 판정, 데미지 계산, 궤적 예측, 파워 게이지
+- **[Game Flow](docs/game/game-flow.md)** - 상태 머신, 턴 관리, 승패 판정, GameManager 인터페이스
 - **[GDD](docs/game/GDD.md)** - 전체 게임 설계 문서
 - **[Game Rules](docs/game/game-rules.md)** - 밸런스 수치, 경제, 엣지 케이스
 

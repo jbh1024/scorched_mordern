@@ -4,12 +4,11 @@ import { generateTerrain } from './terrain/terrain-generator.js';
 import { TerrainRenderer } from './renderer/terrain-renderer.js';
 import { Tank } from './core/tank.js';
 import { TankRenderer } from './renderer/tank-renderer.js';
-import { Projectile, STANDARD_SHELL, predictTrajectory } from './core/projectile.js';
 import { ProjectileRenderer } from './renderer/projectile-renderer.js';
+import { GameManager } from './core/game-manager.js';
+import type { GameEvent } from './core/game-manager.js';
 
 const PLAYER_COLORS = [0xe74c3c, 0x3498db, 0x2ecc71, 0xf1c40f, 0x9b59b6, 0xe67e22, 0x1abc9c, 0xecf0f1];
-
-type GameState = 'player_action' | 'projectile_flight' | 'turn_end';
 
 async function init() {
   const app = new Application();
@@ -36,15 +35,14 @@ async function init() {
   resize();
   window.addEventListener('resize', resize);
 
-  // 지형 생성
+  // --- 지형 ---
   const seed = 42;
   const { mask, colorData } = generateTerrain(GAME.WORLD_WIDTH, GAME.WORLD_HEIGHT, seed);
-
   const terrainRenderer = new TerrainRenderer(GAME.WORLD_WIDTH, GAME.WORLD_HEIGHT);
   await terrainRenderer.fullRedraw(colorData);
   app.stage.addChild(terrainRenderer.container);
 
-  // 탱크 생성
+  // --- 탱크 ---
   const tank1 = new Tank('t1', 'p1', PLAYER_COLORS[0]!);
   const tank2 = new Tank('t2', 'p2', PLAYER_COLORS[1]!);
   const tanks = [tank1, tank2];
@@ -56,13 +54,13 @@ async function init() {
   const tankRenderers = tanks.map(t => new TankRenderer(t));
   for (const tr of tankRenderers) app.stage.addChild(tr.container);
 
-  // 포탄 렌더러
+  // --- 포탄 렌더러 ---
   const projectileRenderer = new ProjectileRenderer();
   app.stage.addChild(projectileRenderer.container);
 
-  // HUD: 파워 게이지 + 턴 표시
-  const hudContainer = new Graphics();
-  app.stage.addChild(hudContainer);
+  // --- HUD ---
+  const hudGraphics = new Graphics();
+  app.stage.addChild(hudGraphics);
 
   const turnText = new Text({
     text: '',
@@ -73,143 +71,82 @@ async function init() {
   turnText.anchor.set(0.5, 0);
   app.stage.addChild(turnText);
 
-  // 게임 상태
-  let gameState: GameState = 'player_action';
-  let currentPlayer = 0;
-  let power = 50; // 0~100 (%)
-  let projectile: Projectile | null = null;
-  const wind = 0; // Phase 1: 바람 없음
+  // --- GameManager ---
+  const game = new GameManager(tanks, mask, colorData);
 
-  // 키 입력
+  // --- 입력 ---
   const keys = new Set<string>();
   window.addEventListener('keydown', (e) => {
     keys.add(e.code);
-    // Space로 발사
-    if (e.code === 'Space' && gameState === 'player_action') {
-      fire();
-    }
+    if (e.code === 'Space') game.fire();
   });
   window.addEventListener('keyup', (e) => keys.delete(e.code));
 
-  function fire() {
-    const tank = tanks[currentPlayer]!;
-    const origin = tank.getFireOrigin();
-    const actualPower = (power / 100) * GAME.MAX_POWER;
-
-    projectile = new Projectile(
-      origin.x,
-      origin.y,
-      tank.angleRad,
-      actualPower,
-      STANDARD_SHELL,
-      tank.id,
-    );
-
-    gameState = 'projectile_flight';
-    projectileRenderer.hideTrajectory();
-  }
-
-  function nextTurn() {
-    // 승패 판정
-    const alive = tanks.filter(t => t.isAlive);
-    if (alive.length <= 1) {
-      const winner = alive[0];
-      turnText.text = winner ? `Player ${tanks.indexOf(winner) + 1} Wins!` : 'Draw!';
-      gameState = 'turn_end';
-      return;
+  // --- 이벤트 핸들러 ---
+  async function handleEvents(events: GameEvent[]) {
+    for (const event of events) {
+      switch (event.type) {
+        case 'explosion':
+          await terrainRenderer.redrawExplosion(
+            mask, colorData, event.x, event.y, event.radius,
+          );
+          break;
+        case 'game_over':
+          if (event.winnerId) {
+            const idx = tanks.findIndex(t => t.id === event.winnerId);
+            turnText.text = `Player ${idx + 1} Wins!`;
+          } else {
+            turnText.text = 'Draw!';
+          }
+          break;
+      }
     }
-
-    // 다음 플레이어
-    do {
-      currentPlayer = (currentPlayer + 1) % tanks.length;
-    } while (!tanks[currentPlayer]!.isAlive);
-
-    power = 50;
-    gameState = 'player_action';
   }
 
-  // 게임 루프
+  // --- 게임 루프 ---
   app.ticker.add(async (ticker) => {
     const dt = ticker.deltaMS / 1000;
-    const tank = tanks[currentPlayer]!;
 
-    if (gameState === 'player_action') {
-      // 각도 조절
-      if (keys.has('ArrowLeft')) tank.adjustAngle(2);
-      if (keys.has('ArrowRight')) tank.adjustAngle(-2);
-      // 파워 조절
-      if (keys.has('ArrowUp')) power = Math.min(100, power + 1);
-      if (keys.has('ArrowDown')) power = Math.max(0, power - 1);
-
-      // 궤적 예측선
-      const origin = tank.getFireOrigin();
-      const actualPower = (power / 100) * GAME.MAX_POWER;
-      const points = predictTrajectory(
-        origin.x, origin.y, tank.angleRad, actualPower, wind, mask,
-      );
-      projectileRenderer.drawTrajectory(points);
-
-      // HUD
-      turnText.text = `Player ${currentPlayer + 1} | Angle: ${tank.angle}° | Power: ${power}% | [Space] Fire`;
+    // 입력 처리
+    if (game.state === 'player_action') {
+      if (keys.has('ArrowLeft')) game.adjustAngle(2);
+      if (keys.has('ArrowRight')) game.adjustAngle(-2);
+      if (keys.has('ArrowUp')) game.adjustPower(1);
+      if (keys.has('ArrowDown')) game.adjustPower(-1);
     }
 
-    if (gameState === 'projectile_flight' && projectile) {
-      projectile.update(dt, wind);
-      projectile.updateOriginCheck(tank);
-
-      // 충돌 체크
-      let hit = false;
-
-      // 탱크 충돌
-      for (const t of tanks) {
-        if (projectile.checkTankCollision(t)) {
-          hit = true;
-          break;
-        }
-      }
-
-      // 지형 충돌
-      if (!hit && projectile.checkTerrainCollision(mask)) {
-        hit = true;
-      }
-
-      if (hit) {
-        projectile.explode(mask, colorData, tanks);
-        await terrainRenderer.redrawExplosion(mask, colorData,
-          Math.floor(projectile.x), Math.floor(projectile.y),
-          projectile.config.explosionRadius);
-
-        // 탱크 재배치
-        for (const t of tanks) {
-          if (t.isAlive) t.placeOnTerrain(t.x, mask);
-        }
-
-        projectile = null;
-        nextTurn();
-      } else if (projectile.isOutOfBounds()) {
-        projectile.expire();
-        projectile = null;
-        nextTurn();
-      }
+    // 게임 업데이트
+    const events = game.update(dt);
+    if (events.length > 0) {
+      await handleEvents(events);
     }
 
-    // 렌더러 갱신
-    projectileRenderer.updateBullet(projectile);
+    // --- 렌더링 갱신 ---
+
+    // 포탄
+    projectileRenderer.updateBullet(game.projectile);
+
+    // 궤적 예측선
+    if (game.state === 'player_action') {
+      projectileRenderer.drawTrajectory(game.getTrajectoryPreview());
+    } else {
+      projectileRenderer.hideTrajectory();
+    }
+
+    // 탱크
     for (const tr of tankRenderers) tr.update();
 
-    // 파워 게이지 HUD
-    hudContainer.clear();
-    if (gameState === 'player_action') {
+    // HUD
+    hudGraphics.clear();
+    if (game.state === 'player_action') {
+      const tank = game.currentTank;
+      turnText.text = `Player ${game.currentPlayerIndex + 1} | Angle: ${tank.angle}° | Power: ${game.power}% | [Space] Fire`;
+
+      // 파워 게이지
       const barX = tank.x - 10;
       const barY = tank.y - 30;
-      const barW = 52;
-      const barH = 6;
-      hudContainer
-        .rect(barX, barY, barW, barH)
-        .fill({ color: 0x333333 });
-      hudContainer
-        .rect(barX + 1, barY + 1, (barW - 2) * (power / 100), barH - 2)
-        .fill({ color: 0xff8800 });
+      hudGraphics.rect(barX, barY, 52, 6).fill({ color: 0x333333 });
+      hudGraphics.rect(barX + 1, barY + 1, 50 * (game.power / 100), 4).fill({ color: 0xff8800 });
     }
   });
 
