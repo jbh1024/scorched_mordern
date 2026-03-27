@@ -17,10 +17,10 @@
 - [x] 개발 문서 (GDD, CLAUDE.md, ROADMAP)
 
 ### 1.2 지형 시스템
-- [ ] Perlin Noise 기반 높이맵 생성 (`terrain/height-map.ts`)
-- [ ] TerrainMask (ImageData) 데이터 구조 (`terrain/terrain-mask.ts`)
-- [ ] 지형 → PixiJS Sprite 렌더링 (`renderer/terrain-renderer.ts`)
-- [ ] 색상 팔레트 적용 (Grassland 테마 기본)
+- [x] Perlin Noise 기반 높이맵 생성 (`shared/src/noise.ts`)
+- [x] TerrainMask 데이터 구조 (`shared/src/terrain-mask.ts`)
+- [x] 지형 → PixiJS Sprite 렌더링 (`client/src/renderer/terrain-renderer.ts`)
+- [x] 색상 팔레트 적용 (Grassland 테마 기본)
 
 ### 1.3 탱크 시스템
 - [ ] Tank 클래스 정의 (`core/tank.ts`)
@@ -36,7 +36,7 @@
 - [ ] 궤적 예측선 렌더링 (짧은 범위)
 
 ### 1.5 지형 파괴
-- [ ] Explosion Brush (원형 지형 제거)
+- [x] Explosion Brush (원형 지형 제거)
 - [ ] 폭발 시각 이펙트 (기본 파티클)
 - [ ] TerrainMask → Texture 업데이트 (Dirty Rect)
 

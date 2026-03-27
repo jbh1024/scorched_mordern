@@ -22,3 +22,16 @@ export const TANK = {
   FUEL_PER_TURN: 100,
   MAX_CLIMB_ANGLE: 45,
 } as const;
+
+export const TERRAIN = {
+  /** R channel: 빈 공간 */
+  DENSITY_EMPTY: 0,
+  /** R channel: 고체 지형 */
+  DENSITY_SOLID: 255,
+  /** G channel: 흙 */
+  MATERIAL_DIRT: 0,
+  /** G channel: 바위 (파괴 저항) */
+  MATERIAL_ROCK: 128,
+  /** G channel: 파괴 불가 */
+  MATERIAL_INDESTRUCTIBLE: 255,
+} as const;
