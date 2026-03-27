@@ -113,7 +113,7 @@ interface TerrainTheme {
 ```
 1. mask.explode(cx, cy, radius)           → TerrainMask 데이터 갱신
 2. colorData 해당 영역 투명화              → 색상 데이터 갱신
-3. terrainRenderer.redrawExplosion(...)    → Canvas putImageData → ImageBitmap → PixiJS Texture
+3. terrainRenderer.redrawExplosion(colorData, cx, cy, radius) → Canvas putImageData → ImageBitmap → PixiJS Texture
 ```
 
 - **Dirty Rect 최적화**: 변경된 영역만 putImageData로 갱신
