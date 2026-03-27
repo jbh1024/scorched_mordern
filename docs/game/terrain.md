@@ -123,7 +123,7 @@ interface TerrainTheme {
 
 ## 5. 셀룰러 오토마타 (미구현)
 
-Phase 3에서 구현 예정. Web Worker 기반 모래 물리:
+Phase 4에서 구현 예정. Web Worker 기반 모래 물리:
 
 - 공중에 떠 있는 지형 픽셀이 아래로 떨어짐
 - 대각선 이동 지원 (좌/우 랜덤 우선)

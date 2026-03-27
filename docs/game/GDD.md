@@ -645,38 +645,31 @@ Main Menu → Lobby (Create/Join Room) → Game → Results → Shop → Next Ro
 
 ## 15. Development Phases
 
-### Phase 1: Core Prototype (MVP)
-- [ ] 프로젝트 셋업 (monorepo, Vite, TypeScript)
-- [ ] 기본 지형 생성 및 렌더링 (PixiJS + TerrainMask)
-- [ ] 포탄 물리 시뮬레이션 (궤적 계산 + 충돌)
-- [ ] 지형 파괴 (Explosion Brush)
-- [ ] 기본 턴 시스템 (2인 로컬 플레이)
-- [ ] 기본 UI (각도/파워 조절, 발사 버튼)
+### Phase 1: Core Prototype (MVP) - COMPLETE
+- [x] 프로젝트 셋업, 지형, 탱크, 포탄, 파괴, 턴 시스템
 
-### Phase 2: Multiplayer
-- [ ] Colyseus 서버 셋업
-- [ ] 로비 시스템 (방 생성/참가/코드 공유)
-- [ ] 상태 동기화 (시드 기반 지형 + 이벤트 기반 변경)
-- [ ] 턴 타이머 및 연결 끊김 처리
+### Phase 2: Single Player (AI)
+- [ ] AI 엔진 (역궤적 계산, 타겟 선정)
+- [ ] 난이도 시스템 (Easy ~ Brutal)
+- [ ] 싱글플레이 설정 UI (봇 수, 난이도)
 
-### Phase 3: Content & Polish
+### Phase 3: Multiplayer
+- [ ] Colyseus 서버 (GameState Schema, 턴 관리)
+- [ ] 로비 시스템 (방 생성/참가, 닉네임 입력)
+- [ ] 네트워크 동기화 (seed 지형 + 이벤트 전파)
+- [ ] 연결 관리 (턴 타이머, 재접속)
+
+### Phase 4: Content & Polish
 - [ ] 셀룰러 오토마타 (모래 물리)
-- [ ] 특수 무기 구현 (Sandbag, Napalm, MIRV, Singularity)
+- [ ] 특수 무기 (Sandbag, Napalm, MIRV, Singularity 등)
 - [ ] 경제 시스템 및 상점
-- [ ] AI 시스템 (난이도별)
 - [ ] 맵 테마 다양화
 
-### Phase 4: Audio & Visual
-- [ ] 사운드 시스템
-- [ ] 파티클 이펙트 (폭발, 화염, 먼지)
-- [ ] 카메라 시스템 (팬, 줌, 추적)
-- [ ] 배경 패럴랙스
+### Phase 5: Audio & Visual
+- [ ] 사운드, 카메라, 배경 패럴랙스
 
-### Phase 5: Release & Optimize
-- [ ] 모바일 최적화
-- [ ] 성능 프로파일링 및 튜닝
-- [ ] 배포 (Cloudflare Pages + Fly.io)
-- [ ] 밸런스 테스트 및 조정
+### Phase 6: Release & Optimize
+- [ ] 모바일, 성능, 배포, 밸런스
 
 ---
 
