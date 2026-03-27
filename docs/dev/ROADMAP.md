@@ -42,7 +42,7 @@
 
 ### 1.5 지형 파괴
 - [x] Explosion Brush (원형 지형 제거)
-- [ ] 폭발 시각 이펙트 (기본 파티클)
+- [x] 폭발 시각 이펙트 (파편/먼지 파티클, 중력+페이드아웃)
 - [x] TerrainMask → Texture 업데이트 (Dirty Rect + ImageBitmap)
 
 ### 1.6 턴 시스템

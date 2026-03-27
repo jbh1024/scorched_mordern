@@ -7,6 +7,7 @@ import { TankRenderer } from './renderer/tank-renderer.js';
 import { ProjectileRenderer } from './renderer/projectile-renderer.js';
 import { GameManager } from './core/game-manager.js';
 import type { GameEvent } from './core/game-manager.js';
+import { ParticleSystem } from './renderer/particle-system.js';
 
 const PLAYER_COLORS = [0xe74c3c, 0x3498db, 0x2ecc71, 0xf1c40f, 0x9b59b6, 0xe67e22, 0x1abc9c, 0xecf0f1];
 
@@ -57,6 +58,10 @@ async function init() {
   // --- 포탄 렌더러 ---
   const projectileRenderer = new ProjectileRenderer();
   app.stage.addChild(projectileRenderer.container);
+
+  // --- 파티클 시스템 ---
+  const particleSystem = new ParticleSystem();
+  app.stage.addChild(particleSystem.container);
 
   // --- HUD (하단) ---
   const HUD_TEXT_Y = GAME.WORLD_HEIGHT - 50;
@@ -120,6 +125,7 @@ async function init() {
           await terrainRenderer.redrawExplosion(
             colorData, event.x, event.y, event.radius,
           );
+          particleSystem.spawnExplosion(event.x, event.y, event.radius);
           break;
         case 'game_over':
           if (event.winnerId) {
@@ -146,7 +152,8 @@ async function init() {
       if (keys.has('ArrowDown')) game.adjustAngle(-1);
     }
 
-    // 게임 업데이트
+    // 게임 + 파티클 업데이트
+    particleSystem.update(dt);
     const events = game.update(dt);
     if (events.length > 0) {
       await handleEvents(events);
