@@ -120,9 +120,19 @@ chore: configure eslint and prettier
 
 ### 구현 프로세스
 1. **Plan** - Sequential Thinking MCP로 작업 계획 수립
-2. **Implement** - 계획에 따라 구현
-3. **Verify** - `npm run typecheck` + 브라우저 확인
-4. **Commit** - Conventional Commits 규격으로 커밋
+2. **Spec** - 해당 시스템의 스펙 문서 작성/확인 (`docs/game/`)
+3. **Implement** - 스펙에 따라 구현
+4. **Verify** - `npm run test` + `npm run typecheck` + 브라우저 확인
+5. **Document** - 구현 결과에 맞게 스펙 문서 갱신, CLAUDE.md 링크 추가
+6. **Commit** - 코드 + 문서를 함께 Conventional Commits 규격으로 커밋
+
+### 게임 기능 문서화 규칙
+새로운 게임 시스템(포탄, 무기, AI 등) 구현 시:
+- `docs/game/<system>.md` 에 스펙 문서를 작성한다
+- 포함 내용: 설정값, 상수 참조, 제약사항, 좌표/각도 규칙, 상태 전이, API 참조, 특이사항
+- 기존 문서 참고 패턴: `docs/game/terrain.md`, `docs/game/tank.md`
+- 구현 중 스펙이 변경되면 문서도 함께 갱신한다
+- CLAUDE.md의 Game Specifications 섹션에 링크를 추가한다
 
 ### MCP Tools
 - **Sequential Thinking** - 복잡한 작업의 계획 수립, 문제 분석
