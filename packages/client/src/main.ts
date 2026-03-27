@@ -43,8 +43,8 @@ async function init() {
   app.stage.addChild(terrainRenderer.container);
 
   // --- 탱크 ---
-  const tank1 = new Tank('t1', 'p1', PLAYER_COLORS[0]!);
-  const tank2 = new Tank('t2', 'p2', PLAYER_COLORS[1]!);
+  const tank1 = new Tank('t1', 'p1', PLAYER_COLORS[0]!, 'Player 1');
+  const tank2 = new Tank('t2', 'p2', PLAYER_COLORS[1]!, 'Player 2');
   const tanks = [tank1, tank2];
 
   const margin = GAME.WORLD_WIDTH * 0.15;
@@ -58,29 +58,53 @@ async function init() {
   const projectileRenderer = new ProjectileRenderer();
   app.stage.addChild(projectileRenderer.container);
 
-  // --- HUD ---
+  // --- HUD (하단) ---
   const hudGraphics = new Graphics();
   app.stage.addChild(hudGraphics);
 
-  const turnText = new Text({
+  const hudText = new Text({
     text: '',
-    style: new TextStyle({ fill: 0xffffff, fontSize: 24, fontWeight: 'bold' }),
+    style: new TextStyle({ fill: 0xffffff, fontSize: 20, fontWeight: 'bold' }),
   });
-  turnText.x = GAME.WORLD_WIDTH / 2;
-  turnText.y = 20;
-  turnText.anchor.set(0.5, 0);
-  app.stage.addChild(turnText);
+  hudText.x = GAME.WORLD_WIDTH / 2;
+  hudText.y = GAME.WORLD_HEIGHT - 50;
+  hudText.anchor.set(0.5, 0);
+  app.stage.addChild(hudText);
+
+  const controlsText = new Text({
+    text: '←→ Move  ↑↓ Angle  [Space] Hold=Fire  [E] Weapon',
+    style: new TextStyle({ fill: 0xaaaaaa, fontSize: 14 }),
+  });
+  controlsText.x = GAME.WORLD_WIDTH / 2;
+  controlsText.y = GAME.WORLD_HEIGHT - 20;
+  controlsText.anchor.set(0.5, 0);
+  app.stage.addChild(controlsText);
 
   // --- GameManager ---
   const game = new GameManager(tanks, mask, colorData);
 
   // --- 입력 ---
   const keys = new Set<string>();
+
   window.addEventListener('keydown', (e) => {
+    if (keys.has(e.code)) return; // 키 반복 방지
     keys.add(e.code);
-    if (e.code === 'Space') game.fire();
+
+    if (e.code === 'Space' && game.state === 'player_action') {
+      game.startCharging();
+    }
+    if (e.code === 'KeyE') {
+      game.cycleWeapon();
+    }
   });
-  window.addEventListener('keyup', (e) => keys.delete(e.code));
+
+  window.addEventListener('keyup', (e) => {
+    keys.delete(e.code);
+
+    if (e.code === 'Space' && game.state === 'charging') {
+      game.releaseAndFire();
+    }
+  });
 
   // --- 이벤트 핸들러 ---
   async function handleEvents(events: GameEvent[]) {
@@ -93,11 +117,12 @@ async function init() {
           break;
         case 'game_over':
           if (event.winnerId) {
-            const idx = tanks.findIndex(t => t.id === event.winnerId);
-            turnText.text = `Player ${idx + 1} Wins!`;
+            const winner = tanks.find(t => t.id === event.winnerId);
+            hudText.text = `${winner?.name ?? '???'} Wins!`;
           } else {
-            turnText.text = 'Draw!';
+            hudText.text = 'Draw!';
           }
+          controlsText.text = '';
           break;
       }
     }
@@ -109,10 +134,10 @@ async function init() {
 
     // 입력 처리
     if (game.state === 'player_action') {
-      if (keys.has('ArrowLeft')) game.adjustAngle(2);
-      if (keys.has('ArrowRight')) game.adjustAngle(-2);
-      if (keys.has('ArrowUp')) game.adjustPower(1);
-      if (keys.has('ArrowDown')) game.adjustPower(-1);
+      if (keys.has('ArrowLeft')) game.moveTank(-1, dt);
+      if (keys.has('ArrowRight')) game.moveTank(1, dt);
+      if (keys.has('ArrowUp')) game.adjustAngle(2);
+      if (keys.has('ArrowDown')) game.adjustAngle(-2);
     }
 
     // 게임 업데이트
@@ -121,32 +146,37 @@ async function init() {
       await handleEvents(events);
     }
 
-    // --- 렌더링 갱신 ---
+    // --- 렌더링 ---
 
-    // 포탄
     projectileRenderer.updateBullet(game.projectile);
 
-    // 궤적 예측선
-    if (game.state === 'player_action') {
+    if (game.state === 'player_action' || game.state === 'charging') {
       projectileRenderer.drawTrajectory(game.getTrajectoryPreview());
     } else {
       projectileRenderer.hideTrajectory();
     }
 
-    // 탱크
     for (const tr of tankRenderers) tr.update();
 
-    // HUD
+    // HUD 하단
     hudGraphics.clear();
     if (game.state === 'player_action') {
       const tank = game.currentTank;
-      turnText.text = `Player ${game.currentPlayerIndex + 1} | Angle: ${tank.angle}° | Power: ${game.power}% | [Space] Fire`;
+      const fuelPct = Math.floor((tank.fuel / 100) * 100);
+      hudText.text = `${tank.name} | Angle: ${tank.angle}° | Fuel: ${fuelPct}% | Weapon: Shell`;
+    } else if (game.state === 'charging') {
+      const tank = game.currentTank;
+      hudText.text = `${tank.name} | CHARGING: ${Math.floor(game.power)}%`;
 
-      // 파워 게이지
-      const barX = tank.x - 10;
-      const barY = tank.y - 30;
-      hudGraphics.rect(barX, barY, 52, 6).fill({ color: 0x333333 });
-      hudGraphics.rect(barX + 1, barY + 1, 50 * (game.power / 100), 4).fill({ color: 0xff8800 });
+      // 파워 차징 바 (하단 중앙)
+      const barW = 300;
+      const barH = 12;
+      const barX = (GAME.WORLD_WIDTH - barW) / 2;
+      const barY = GAME.WORLD_HEIGHT - 80;
+      hudGraphics.rect(barX, barY, barW, barH).fill({ color: 0x333333 });
+      hudGraphics.rect(barX, barY, barW * (game.power / 100), barH).fill({ color: 0xff4400 });
+    } else if (game.state === 'projectile_flight') {
+      hudText.text = '...';
     }
   });
 

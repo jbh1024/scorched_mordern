@@ -1,12 +1,12 @@
 import { GAME } from '@scorched/shared';
 import type { TerrainMask, Point } from '@scorched/shared';
-import { clamp } from '@scorched/shared';
 import { Tank } from './tank.js';
 import { Projectile, STANDARD_SHELL, predictTrajectory } from './projectile.js';
+import type { ProjectileConfig } from './projectile.js';
 
 // --- Game State ---
 
-export type GameState = 'player_action' | 'projectile_flight' | 'turn_end' | 'game_over';
+export type GameState = 'player_action' | 'charging' | 'projectile_flight' | 'turn_end' | 'game_over';
 
 // --- Game Events ---
 
@@ -26,8 +26,10 @@ export class GameManager {
   readonly terrain: TerrainMask;
   readonly colorData: Uint8Array;
   projectile: Projectile | null;
-  power: number; // 0~100
+  power: number;       // 0~100 (차징 중 증가)
   readonly wind: number;
+  private hasFired: boolean; // 이번 턴에 발사했는지 (발사 후 이동 불가)
+  currentWeapon: ProjectileConfig;
 
   constructor(tanks: Tank[], terrain: TerrainMask, colorData: Uint8Array) {
     this.state = 'player_action';
@@ -36,8 +38,10 @@ export class GameManager {
     this.terrain = terrain;
     this.colorData = colorData;
     this.projectile = null;
-    this.power = 50;
-    this.wind = 0; // Phase 1: 바람 없음
+    this.power = 0;
+    this.wind = 0;
+    this.hasFired = false;
+    this.currentWeapon = STANDARD_SHELL;
   }
 
   get currentTank(): Tank {
@@ -53,49 +57,57 @@ export class GameManager {
     return alive.length === 1 ? alive[0]! : null;
   }
 
-  // --- 입력 ---
+  // --- 입력: 이동 (좌/우 방향키) ---
+
+  moveTank(direction: -1 | 1, dt: number): void {
+    if (this.state !== 'player_action' || this.hasFired) return;
+    this.currentTank.move(direction, this.terrain, dt);
+  }
+
+  // --- 입력: 각도 (상/하 방향키) ---
 
   adjustAngle(delta: number): void {
     if (this.state !== 'player_action') return;
     this.currentTank.adjustAngle(delta);
   }
 
-  adjustPower(delta: number): void {
+  // --- 입력: Space 차징 시작 ---
+
+  startCharging(): void {
     if (this.state !== 'player_action') return;
-    this.power = clamp(this.power + delta, 0, 100);
+    this.power = 0;
+    this.state = 'charging';
   }
 
-  fire(): void {
+  // --- 입력: Space 릴리즈 → 발사 ---
+
+  releaseAndFire(): void {
+    if (this.state !== 'charging') return;
+    this.fire();
+  }
+
+  // --- 입력: 무기 변경 (E 키) ---
+
+  cycleWeapon(): void {
     if (this.state !== 'player_action') return;
-
-    const tank = this.currentTank;
-    const origin = tank.getFireOrigin();
-    const actualPower = (this.power / 100) * GAME.MAX_POWER;
-
-    this.projectile = new Projectile(
-      origin.x,
-      origin.y,
-      tank.angleRad,
-      actualPower,
-      STANDARD_SHELL,
-      tank.id,
-    );
-
-    this.state = 'projectile_flight';
+    // Phase 1: Standard Shell만 → 향후 인벤토리 순환
+    this.currentWeapon = STANDARD_SHELL;
   }
 
   // --- 궤적 예측 ---
 
   getTrajectoryPreview(): Point[] {
-    if (this.state !== 'player_action') return [];
+    if (this.state !== 'player_action' && this.state !== 'charging') return [];
 
     const tank = this.currentTank;
     const origin = tank.getFireOrigin();
-    const actualPower = (this.power / 100) * GAME.MAX_POWER;
+    const previewPower = this.state === 'charging'
+      ? (this.power / 100) * GAME.MAX_POWER
+      : (50 / 100) * GAME.MAX_POWER; // player_action에서는 50% 프리뷰
 
     return predictTrajectory(
       origin.x, origin.y,
-      tank.angleRad, actualPower,
+      tank.angleRad, previewPower,
       this.wind, this.terrain,
     );
   }
@@ -105,11 +117,33 @@ export class GameManager {
   update(dt: number): GameEvent[] {
     const events: GameEvent[] = [];
 
+    if (this.state === 'charging') {
+      this.power = Math.min(100, this.power + 60 * dt); // ~1.7초에 100%
+      if (this.power >= 100) {
+        this.fire(); // 100% 도달 시 자동 발사
+      }
+    }
+
     if (this.state === 'projectile_flight' && this.projectile) {
       this.updateProjectile(dt, events);
     }
 
     return events;
+  }
+
+  private fire(): void {
+    const tank = this.currentTank;
+    const origin = tank.getFireOrigin();
+    const actualPower = (this.power / 100) * GAME.MAX_POWER;
+
+    this.projectile = new Projectile(
+      origin.x, origin.y,
+      tank.angleRad, actualPower,
+      this.currentWeapon, tank.id,
+    );
+
+    this.hasFired = true;
+    this.state = 'projectile_flight';
   }
 
   private updateProjectile(dt: number, events: GameEvent[]): void {
@@ -118,16 +152,10 @@ export class GameManager {
     projectile.update(dt, this.wind);
     projectile.updateOriginCheck(this.currentTank);
 
-    // 충돌 체크: 탱크
     let hit = false;
     for (const tank of this.tanks) {
-      if (projectile.checkTankCollision(tank)) {
-        hit = true;
-        break;
-      }
+      if (projectile.checkTankCollision(tank)) { hit = true; break; }
     }
-
-    // 충돌 체크: 지형
     if (!hit && projectile.checkTerrainCollision(this.terrain)) {
       hit = true;
     }
@@ -146,14 +174,10 @@ export class GameManager {
     const cy = Math.floor(projectile.y);
     const radius = projectile.config.explosionRadius;
 
-    // 폭발 전 HP 기록 (데미지/킬 이벤트용)
     const hpBefore = new Map(this.tanks.map(t => [t.id, t.hp]));
-
     projectile.explode(this.terrain, this.colorData, this.tanks);
-
     events.push({ type: 'explosion', x: cx, y: cy, radius });
 
-    // 데미지/킬 이벤트 생성
     for (const tank of this.tanks) {
       const prevHp = hpBefore.get(tank.id)!;
       if (tank.hp < prevHp) {
@@ -164,7 +188,6 @@ export class GameManager {
       }
     }
 
-    // 탱크 재배치
     for (const tank of this.tanks) {
       if (tank.isAlive) tank.placeOnTerrain(tank.x, this.terrain);
     }
@@ -174,7 +197,6 @@ export class GameManager {
   }
 
   private advanceTurn(events: GameEvent[]): void {
-    // 승패 판정
     const alive = this.tanks.filter(t => t.isAlive);
 
     if (alive.length <= 1) {
@@ -184,12 +206,13 @@ export class GameManager {
       return;
     }
 
-    // 다음 생존 플레이어
     do {
       this.currentPlayerIndex = (this.currentPlayerIndex + 1) % this.tanks.length;
     } while (!this.currentTank.isAlive);
 
-    this.power = 50;
+    this.power = 0;
+    this.hasFired = false;
+    this.currentTank.resetFuel();
     this.state = 'player_action';
     events.push({ type: 'turn_change', playerIndex: this.currentPlayerIndex });
   }
