@@ -2,12 +2,17 @@ import { Application } from 'pixi.js';
 import { GAME } from '@scorched/shared';
 import { generateTerrain } from './terrain/terrain-generator.js';
 import { TerrainRenderer } from './renderer/terrain-renderer.js';
+import { Tank } from './core/tank.js';
+import { TankRenderer } from './renderer/tank-renderer.js';
+
+// 플레이어 색상
+const PLAYER_COLORS = [0xe74c3c, 0x3498db, 0x2ecc71, 0xf1c40f, 0x9b59b6, 0xe67e22, 0x1abc9c, 0xecf0f1];
 
 async function init() {
   const app = new Application();
 
   await app.init({
-    background: '#87CEEB', // 하늘색 배경
+    background: '#87CEEB',
     width: GAME.WORLD_WIDTH,
     height: GAME.WORLD_HEIGHT,
     antialias: true,
@@ -17,7 +22,6 @@ async function init() {
   if (!container) throw new Error('Game container not found');
   container.appendChild(app.canvas);
 
-  // 캔버스를 화면에 맞게 스케일링
   function resize() {
     const scale = Math.min(
       window.innerWidth / GAME.WORLD_WIDTH,
@@ -29,7 +33,7 @@ async function init() {
   resize();
   window.addEventListener('resize', resize);
 
-  // 지형 생성 (seed: 42)
+  // 지형 생성
   const seed = 42;
   const { mask, colorData } = generateTerrain(
     GAME.WORLD_WIDTH,
@@ -42,11 +46,44 @@ async function init() {
   await terrainRenderer.fullRedraw(colorData);
   app.stage.addChild(terrainRenderer.container);
 
-  console.log(
-    `Scorched Modern initialized - Seed: ${seed}, World: ${GAME.WORLD_WIDTH}x${GAME.WORLD_HEIGHT}`,
-  );
+  // 탱크 2대 생성 및 배치
+  const tank1 = new Tank('t1', 'p1', PLAYER_COLORS[0]!);
+  const tank2 = new Tank('t2', 'p2', PLAYER_COLORS[1]!);
 
-  // 디버그: 클릭으로 폭발 테스트
+  const margin = GAME.WORLD_WIDTH * 0.15;
+  tank1.placeOnTerrain(Math.floor(margin), mask);
+  tank2.placeOnTerrain(Math.floor(GAME.WORLD_WIDTH - margin), mask);
+
+  const tankRenderer1 = new TankRenderer(tank1);
+  const tankRenderer2 = new TankRenderer(tank2);
+  app.stage.addChild(tankRenderer1.container);
+  app.stage.addChild(tankRenderer2.container);
+
+  // 현재 턴 플레이어 (0 또는 1)
+  let currentPlayer = 0;
+  const tanks = [tank1, tank2];
+  const tankRenderers = [tankRenderer1, tankRenderer2];
+
+  // 키보드 입력
+  const keys = new Set<string>();
+  window.addEventListener('keydown', (e) => keys.add(e.key));
+  window.addEventListener('keyup', (e) => keys.delete(e.key));
+
+  // 게임 루프
+  app.ticker.add(() => {
+    const tank = tanks[currentPlayer]!;
+
+    // 포탑 각도 조절 (좌우 방향키)
+    if (keys.has('ArrowLeft')) tank.adjustAngle(2);
+    if (keys.has('ArrowRight')) tank.adjustAngle(-2);
+
+    // 렌더러 갱신
+    for (const renderer of tankRenderers) {
+      renderer.update();
+    }
+  });
+
+  // 클릭으로 폭발 테스트 (디버그)
   app.canvas.addEventListener('click', async (e: MouseEvent) => {
     const rect = app.canvas.getBoundingClientRect();
     const scaleX = GAME.WORLD_WIDTH / rect.width;
@@ -57,7 +94,6 @@ async function init() {
 
     mask.explode(x, y, radius);
 
-    // colorData에서 폭발 영역을 투명으로 갱신
     const minX = Math.max(0, x - radius);
     const maxX = Math.min(GAME.WORLD_WIDTH - 1, x + radius);
     const minY = Math.max(0, y - radius);
@@ -75,8 +111,18 @@ async function init() {
     }
 
     await terrainRenderer.redrawExplosion(mask, colorData, x, y, radius);
-    console.log(`Explosion at (${x}, ${y}) radius=${radius}`);
+
+    // 폭발 후 탱크 재배치 (지형이 깎이면 아래로 떨어짐)
+    for (const t of tanks) {
+      if (t.isAlive) t.placeOnTerrain(t.x, mask);
+    }
+
+    // 턴 교대
+    currentPlayer = (currentPlayer + 1) % tanks.length;
+    console.log(`Explosion at (${x}, ${y}) - Player ${currentPlayer + 1}'s turn`);
   });
+
+  console.log(`Scorched Modern initialized - Seed: ${seed}`);
 }
 
 init().catch(console.error);
