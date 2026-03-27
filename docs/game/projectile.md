@@ -116,19 +116,36 @@ damage = base_damage * max(0, 1 - distance / radius)
 
 ---
 
-## 4. 파워 게이지
+## 4. 조작
 
-### 4.1 조작
+### 4.1 각도 조절
 
-- **상 방향키**: 파워 증가 (+2% per frame)
-- **하 방향키**: 파워 감소 (-2% per frame)
+- **상 방향키**: 포탑 각도 증가 (+2도, 왼쪽으로)
+- **하 방향키**: 포탑 각도 감소 (-2도, 오른쪽으로)
+- 범위: 0° ~ 180°
+
+### 4.2 파워 (Space 홀드 차징)
+
+- **Space 키 누르고 있기**: 파워가 0%부터 증가
+- **Space 키 떼기**: 현재 파워로 발사
+- 파워 증가 속도: 프레임당 +1% (약 1.7초에 100%)
 - 범위: 0% ~ 100% (0 ~ MAX_POWER)
-- 기본값: 50%
+- 파워 게이지 바가 차오르는 시각적 피드백
 
-### 4.2 발사
+### 4.3 무기 변경
 
-- **Space 키**: 현재 각도/파워로 발사
-- 발사 후 PlayerAction → ProjectileFlight 상태 전환
+- **E 키**: 다음 무기로 순환 변경
+- 현재 선택된 무기가 HUD에 표시
+- Phase 1에서는 Standard Shell만 사용
+
+### 4.4 발사 플로우
+
+```
+1. 이동 (좌/우 방향키, 선택)
+2. 각도 조절 (상/하 방향키)
+3. Space 홀드 → 파워 차징 → Space 릴리즈 → 발사
+4. PlayerAction → ProjectileFlight 상태 전환
+```
 
 ---
 
@@ -165,9 +182,11 @@ damage = base_damage * max(0, 1 - distance / radius)
 
 ```
 [PlayerAction]
-  ├── 방향키: 각도/파워 조절
+  ├── 좌/우 방향키: 탱크 이동 (fuel 소비)
+  ├── 상/하 방향키: 포탑 각도 조절
+  ├── E 키: 무기 변경
   ├── 궤적 예측선 실시간 표시
-  └── Space: 발사 → [ProjectileFlight]
+  └── Space 홀드 → 차징 → Space 릴리즈 → 발사 → [ProjectileFlight]
 
 [ProjectileFlight]
   ├── 매 프레임: 물리 업데이트 + 충돌 체크
@@ -190,3 +209,4 @@ damage = base_damage * max(0, 1 - distance / radius)
 3. **dt 일관성**: PixiJS ticker의 `deltaMS / 1000`을 사용. 고정 dt가 아니므로 프레임 독립적.
 4. **정수 좌표 충돌**: `isSolid(Math.floor(x), Math.floor(y))`로 정수 변환 후 체크.
 5. **shared/formulas.ts와의 관계**: `projectilePosition()`은 수학 좌표(Y-up) 기준이므로 클라이언트 step simulation과 다름. 궤적 예측에 사용 시 Y 부호 변환 필요하거나, step simulation을 직접 사용.
+6. **Space 홀드 차징**: keydown에서 차징 시작, keyup에서 발사. 프레임마다 파워 증가. 최대 100%에서 자동 발사 가능 여부는 선택적.
