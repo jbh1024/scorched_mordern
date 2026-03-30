@@ -16,6 +16,11 @@ export default defineWorkspace([
     },
   },
   {
+    resolve: {
+      alias: {
+        '@scorched/shared': new URL('./packages/shared/src', import.meta.url).pathname,
+      },
+    },
     test: {
       name: 'client',
       root: './packages/client',
