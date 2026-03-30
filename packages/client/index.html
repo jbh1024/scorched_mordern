@@ -6,12 +6,64 @@
   <title>Scorched Modern</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a2e; }
-    #game-container { width: 100%; height: 100%; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a2e; color: #fff; font-family: 'Segoe UI', sans-serif; }
+    #game-container { width: 100%; height: 100%; display: none; }
+
+    /* 시작 화면 */
+    #menu-screen {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      width: 100%; height: 100%;
+    }
+    #menu-screen h1 { font-size: 48px; margin-bottom: 8px; color: #f1c40f; }
+    #menu-screen p.subtitle { font-size: 16px; color: #888; margin-bottom: 40px; }
+    .menu-group { margin-bottom: 20px; text-align: center; }
+    .menu-group label { display: block; font-size: 14px; color: #aaa; margin-bottom: 6px; }
+    .menu-group select, .menu-group input {
+      background: #2a2a4e; border: 1px solid #444; color: #fff;
+      padding: 8px 16px; font-size: 16px; border-radius: 4px; min-width: 200px;
+    }
+    #start-btn {
+      margin-top: 20px; padding: 12px 48px; font-size: 20px; font-weight: bold;
+      background: #e74c3c; color: #fff; border: none; border-radius: 6px; cursor: pointer;
+    }
+    #start-btn:hover { background: #c0392b; }
   </style>
 </head>
 <body>
+  <!-- 시작 화면 -->
+  <div id="menu-screen">
+    <h1>Scorched Modern</h1>
+    <p class="subtitle">Turn-based Artillery Strategy</p>
+
+    <div class="menu-group">
+      <label>Bots</label>
+      <select id="bot-count">
+        <option value="1">1 Bot</option>
+        <option value="2">2 Bots</option>
+        <option value="3" selected>3 Bots</option>
+        <option value="4">4 Bots</option>
+        <option value="5">5 Bots</option>
+        <option value="6">6 Bots</option>
+        <option value="7">7 Bots</option>
+      </select>
+    </div>
+
+    <div class="menu-group">
+      <label>Difficulty</label>
+      <select id="difficulty">
+        <option value="easy">Easy</option>
+        <option value="normal" selected>Normal</option>
+        <option value="hard">Hard</option>
+        <option value="brutal">Brutal</option>
+      </select>
+    </div>
+
+    <button id="start-btn">START</button>
+  </div>
+
+  <!-- 게임 캔버스 -->
   <div id="game-container"></div>
+
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

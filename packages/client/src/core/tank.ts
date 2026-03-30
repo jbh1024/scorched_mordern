@@ -6,6 +6,7 @@ export class Tank {
   readonly id: string;
   readonly playerId: string;
   name: string;
+  readonly isBot: boolean;
   x: number;
   y: number;
   hp: number;
@@ -15,10 +16,11 @@ export class Tank {
   fuel: number;
   status: TankStatus;
 
-  constructor(id: string, playerId: string, color: number, name: string) {
+  constructor(id: string, playerId: string, color: number, name: string, isBot = false) {
     this.id = id;
     this.playerId = playerId;
     this.name = name;
+    this.isBot = isBot;
     this.x = 0;
     this.y = 0;
     this.hp = TANK.HP;

@@ -3,16 +3,20 @@ import type { TerrainMask, Point } from '@scorched/shared';
 import { Tank } from './tank.js';
 import { Projectile, STANDARD_SHELL, predictTrajectory } from './projectile.js';
 import type { ProjectileConfig } from './projectile.js';
+import { AIController } from '../ai/ai-controller.js';
+import type { AIDifficulty } from '../ai/ai-controller.js';
 
 // --- Constants ---
 
 const CHARGE_RATE = 60;           // %/s (약 1.7초에 100%)
 const PREVIEW_POWER_PCT = 50;     // 차징 전 궤적 프리뷰 파워 (%)
 const ANGLE_STEP = 2;             // 프레임당 각도 조절량 (도)
+const AI_THINK_TIME = 0.8;        // AI 사고 딜레이 (초)
+const AI_CHARGE_SPEED = 80;       // AI 차징 속도 (%/s, 플레이어보다 빠름)
 
 // --- Game State ---
 
-export type GameState = 'player_action' | 'charging' | 'projectile_flight' | 'turn_end' | 'game_over';
+export type GameState = 'player_action' | 'charging' | 'ai_thinking' | 'ai_charging' | 'projectile_flight' | 'turn_end' | 'game_over';
 
 // --- Game Events ---
 
@@ -32,12 +36,18 @@ export class GameManager {
   readonly terrain: TerrainMask;
   readonly colorData: Uint8Array;
   projectile: Projectile | null;
-  power: number;       // 0~100 (차징 중 증가)
+  power: number;
   readonly wind: number;
-  private hasFired: boolean; // 이번 턴에 발사했는지 (발사 후 이동 불가)
+  private hasFired: boolean;
   currentWeapon: ProjectileConfig;
 
-  constructor(tanks: Tank[], terrain: TerrainMask, colorData: Uint8Array) {
+  // AI
+  private aiControllers: Map<string, AIController> = new Map();
+  private aiThinkTimer: number = 0;
+  private aiTargetAngle: number = 90;
+  private aiTargetPower: number = 50;
+
+  constructor(tanks: Tank[], terrain: TerrainMask, colorData: Uint8Array, aiDifficulty: AIDifficulty = 'normal') {
     this.state = 'player_action';
     this.currentPlayerIndex = 0;
     this.tanks = tanks;
@@ -48,6 +58,18 @@ export class GameManager {
     this.wind = 0;
     this.hasFired = false;
     this.currentWeapon = STANDARD_SHELL;
+
+    // 봇 탱크에 AI 컨트롤러 생성
+    for (const tank of tanks) {
+      if (tank.isBot) {
+        this.aiControllers.set(tank.id, new AIController(aiDifficulty));
+      }
+    }
+
+    // 첫 턴이 봇이면 AI 사고 시작
+    if (this.currentTank.isBot) {
+      this.startAITurn();
+    }
   }
 
   get currentTank(): Tank {
@@ -63,40 +85,34 @@ export class GameManager {
     return alive.length === 1 ? alive[0]! : null;
   }
 
-  // --- 입력: 이동 (좌/우 방향키) ---
+  // --- 플레이어 입력 ---
 
   moveTank(direction: -1 | 1, dt: number): void {
     if (this.state !== 'player_action' || this.hasFired) return;
+    if (this.currentTank.isBot) return;
     this.currentTank.move(direction, this.terrain, dt);
   }
 
-  // --- 입력: 각도 (상/하 방향키) ---
-
   adjustAngle(delta: number): void {
     if (this.state !== 'player_action') return;
+    if (this.currentTank.isBot) return;
     this.currentTank.adjustAngle(delta * ANGLE_STEP);
   }
 
-  // --- 입력: Space 차징 시작 ---
-
   startCharging(): void {
     if (this.state !== 'player_action') return;
+    if (this.currentTank.isBot) return;
     this.power = 0;
     this.state = 'charging';
   }
-
-  // --- 입력: Space 릴리즈 → 발사 ---
 
   releaseAndFire(): void {
     if (this.state !== 'charging') return;
     this.fire();
   }
 
-  // --- 입력: 무기 변경 (E 키) ---
-
   cycleWeapon(): void {
     if (this.state !== 'player_action') return;
-    // Phase 1: Standard Shell만 → 향후 인벤토리 순환
     this.currentWeapon = STANDARD_SHELL;
   }
 
@@ -118,18 +134,66 @@ export class GameManager {
     );
   }
 
+  // --- AI 턴 ---
+
+  private startAITurn(): void {
+    const tank = this.currentTank;
+    const ai = this.aiControllers.get(tank.id);
+    if (!ai) return;
+
+    const target = ai.pickTarget(tank, this.tanks);
+    if (!target) {
+      // 타겟 없음 → 스킵
+      this.advanceTurn([]);
+      return;
+    }
+
+    const shot = ai.computeShot(tank, target, this.terrain, this.wind);
+    this.aiTargetAngle = shot.angle;
+    this.aiTargetPower = shot.power;
+    this.aiThinkTimer = AI_THINK_TIME;
+    this.state = 'ai_thinking';
+  }
+
+  private updateAI(dt: number): void {
+    if (this.state === 'ai_thinking') {
+      this.aiThinkTimer -= dt;
+      if (this.aiThinkTimer <= 0) {
+        // 각도 설정 → 차징 시작
+        this.currentTank.angle = this.aiTargetAngle;
+        this.power = 0;
+        this.state = 'ai_charging';
+      }
+    }
+
+    if (this.state === 'ai_charging') {
+      this.power = Math.min(this.aiTargetPower, this.power + AI_CHARGE_SPEED * dt);
+      if (this.power >= this.aiTargetPower) {
+        this.power = this.aiTargetPower;
+        this.fire();
+      }
+    }
+  }
+
   // --- 프레임 업데이트 ---
 
   update(dt: number): GameEvent[] {
     const events: GameEvent[] = [];
 
+    // AI 턴 처리
+    if (this.state === 'ai_thinking' || this.state === 'ai_charging') {
+      this.updateAI(dt);
+    }
+
+    // 플레이어 차징
     if (this.state === 'charging') {
       this.power = Math.min(100, this.power + CHARGE_RATE * dt);
       if (this.power >= 100) {
-        this.fire(); // 100% 도달 시 자동 발사
+        this.fire();
       }
     }
 
+    // 포탄 비행
     if (this.state === 'projectile_flight' && this.projectile) {
       this.updateProjectile(dt, events);
     }
@@ -219,7 +283,13 @@ export class GameManager {
     this.power = 0;
     this.hasFired = false;
     this.currentTank.resetFuel();
-    this.state = 'player_action';
+
+    // 봇이면 AI 턴 시작, 아니면 플레이어 턴
+    if (this.currentTank.isBot) {
+      this.startAITurn();
+    } else {
+      this.state = 'player_action';
+    }
     events.push({ type: 'turn_change', playerIndex: this.currentPlayerIndex });
   }
 }
