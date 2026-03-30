@@ -50,17 +50,18 @@ export class Tank {
   move(direction: -1 | 1, terrain: TerrainMask, dt: number): number {
     if (this.fuel <= 0 || this.status === 'buried') return 0;
 
-    const speed = 100; // px/s
+    const speed = 150; // px/s
     const distance = Math.min(speed * dt, this.fuel);
     const nextX = this.x + direction * distance;
 
     // 월드 경계 체크
     if (nextX < 0 || nextX + TANK.WIDTH >= terrain.width) return 0;
 
-    // 경사 체크
-    const currentY = terrain.getSurfaceY(Math.floor(nextX + TANK.WIDTH / 2));
-    const prevY = terrain.getSurfaceY(Math.floor(this.x + TANK.WIDTH / 2));
-    const slope = Math.abs(Math.atan2(currentY - prevY, distance));
+    // 경사 체크: 고정 샘플링 거리(TANK.WIDTH)로 기울기 측정
+    const sampleX = Math.floor(nextX + TANK.WIDTH / 2);
+    const sampleLeft = terrain.getSurfaceY(Math.max(0, sampleX - TANK.WIDTH));
+    const sampleRight = terrain.getSurfaceY(Math.min(terrain.width - 1, sampleX + TANK.WIDTH));
+    const slope = Math.abs(Math.atan2(sampleRight - sampleLeft, TANK.WIDTH * 2));
     if (slope > degToRad(TANK.MAX_CLIMB_ANGLE)) return 0;
 
     this.fuel -= distance;
