@@ -91,28 +91,3 @@ export function generateTerrain(
 
   return { mask, colorData };
 }
-
-/**
- * TerrainMask 기반으로 배경색이 있는 색상 데이터를 업데이트한다.
- * 폭발 후 렌더링 갱신에 사용.
- */
-export function updateColorFromMask(
-  mask: TerrainMask,
-  colorData: Uint8Array,
-  minX: number,
-  minY: number,
-  maxX: number,
-  maxY: number,
-): void {
-  for (let y = minY; y <= maxY; y++) {
-    for (let x = minX; x <= maxX; x++) {
-      const ci = (y * mask.width + x) * 4;
-      if (!mask.isSolid(x, y)) {
-        colorData[ci] = 0;
-        colorData[ci + 1] = 0;
-        colorData[ci + 2] = 0;
-        colorData[ci + 3] = 0;
-      }
-    }
-  }
-}

@@ -2,10 +2,12 @@ import type { Point } from './types.js';
 import { GAME } from './constants.js';
 
 /**
- * 시간 t에서의 포탄 위치 계산
+ * 시간 t에서의 포탄 위치 계산 (Y-down 화면 좌표계)
  *
  * x(t) = x0 + (v0 * cos(theta) + wind) * t
- * y(t) = y0 + (v0 * sin(theta)) * t - 0.5 * g * t^2
+ * y(t) = y0 - (v0 * sin(theta)) * t + 0.5 * g * t^2
+ *
+ * Y-down: 위로 쏘려면 vy가 음수, 중력은 Y를 증가시킴
  */
 export function projectilePosition(
   origin: Point,
@@ -15,11 +17,11 @@ export function projectilePosition(
   t: number,
 ): Point {
   const vx = power * Math.cos(angle) + wind;
-  const vy = power * Math.sin(angle);
+  const vy = -power * Math.sin(angle);
 
   return {
     x: origin.x + vx * t,
-    y: origin.y + vy * t - 0.5 * GAME.GRAVITY * t * t,
+    y: origin.y + vy * t + 0.5 * GAME.GRAVITY * t * t,
   };
 }
 
