@@ -6,7 +6,8 @@ const TURRET_LENGTH = TANK.WIDTH * 0.8;
 const HP_BAR_WIDTH = TANK.WIDTH + 8;
 const HP_BAR_HEIGHT = 4;
 const HP_BAR_OFFSET_Y = 10;
-const NAME_OFFSET_Y = 22;
+const FUEL_BAR_OFFSET_Y = 5;
+const NAME_OFFSET_Y = 24;
 
 /**
  * 탱크 한 대를 PixiJS Graphics로 렌더링한다.
@@ -19,6 +20,8 @@ export class TankRenderer {
   private readonly turret: Graphics;
   private readonly hpBarBg: Graphics;
   private readonly hpBar: Graphics;
+  private readonly fuelBarBg: Graphics;
+  private readonly fuelBar: Graphics;
   private readonly nameText: Text;
   private readonly tank: Tank;
 
@@ -59,6 +62,12 @@ export class TankRenderer {
     // HP 바
     this.hpBar = new Graphics();
     this.container.addChild(this.hpBar);
+
+    // Fuel 바
+    this.fuelBarBg = new Graphics();
+    this.container.addChild(this.fuelBarBg);
+    this.fuelBar = new Graphics();
+    this.container.addChild(this.fuelBar);
 
     this.drawBody();
     this.update();
@@ -106,6 +115,16 @@ export class TankRenderer {
     this.hpBar.clear();
     const hpColor = hpRatio > 0.5 ? 0x00cc00 : hpRatio > 0.25 ? 0xcccc00 : 0xcc0000;
     this.hpBar.rect(barX, barY, HP_BAR_WIDTH * hpRatio, HP_BAR_HEIGHT).fill({ color: hpColor });
+
+    // Fuel 바 (HP 바 아래)
+    const fuelRatio = tank.fuel / TANK.FUEL_PER_TURN;
+    const fuelBarY = barY + HP_BAR_HEIGHT + FUEL_BAR_OFFSET_Y;
+    this.fuelBarBg.clear();
+    this.fuelBar.clear();
+    if (fuelRatio > 0) {
+      this.fuelBarBg.rect(barX, fuelBarY, HP_BAR_WIDTH, HP_BAR_HEIGHT).fill({ color: 0x333333 });
+      this.fuelBar.rect(barX, fuelBarY, HP_BAR_WIDTH * fuelRatio, HP_BAR_HEIGHT).fill({ color: 0x3498db });
+    }
 
     // 사망 시 숨김
     this.container.visible = tank.isAlive;
